@@ -27,6 +27,7 @@ async function getGitDiffFiles(): Promise<string[]> {
       'diff',
       '--name-only',
       '--diff-filter=ACMRU',
+      '--relative',
       'origin/main',
       '--',
       '*.sql'

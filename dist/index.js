@@ -25688,6 +25688,7 @@ async function getGitDiffFiles() {
         'diff',
         '--name-only',
         '--diff-filter=ACMRU',
+        '--relative',
         'origin/main',
         '--',
         '*.sql'
