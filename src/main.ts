@@ -75,6 +75,7 @@ async function setupDependencies(
   // Use UV to manage dependencies
 
   try {
+    await exec.exec('uv', ['venv'])
     await exec.exec('uv', ['pip', 'sync', `${pyprojectPath}`])
     console.log('Successfully installed dependencies.')
   } catch (error) {

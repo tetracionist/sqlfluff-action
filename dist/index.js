@@ -25723,6 +25723,7 @@ async function setupUV() {
 async function setupDependencies(pyprojectPath) {
     // Use UV to manage dependencies
     try {
+        await exec.exec('uv', ['venv']);
         await exec.exec('uv', ['pip', 'sync', `${pyprojectPath}`]);
         console.log('Successfully installed dependencies.');
     }
