@@ -108,6 +108,7 @@ export async function run(): Promise<void> {
     const dbtProfilesDir = core.getInput('dbt-profiles-path') || undefined
     const sqlfluffDialect = core.getInput('sqlfluff-dialect')
     const sqlfluffTemplater = core.getInput('sqlfluff-templater')
+    const dbtExec = path.resolve('.venv/bin/dbt')
     const sqlfluffExec = path.resolve('.venv/bin/sqlfluff')
 
     if (dbtProjectDir) {
@@ -124,7 +125,7 @@ export async function run(): Promise<void> {
       process.env.DBT_PROFILES_DIR = dbtProfilesDir
       process.env.DBT_TARGET = 'sqlfluff'
       core.info(`DBT target set to: sqlfluff`)
-      await exec.exec('dbt deps')
+      await exec.exec(`${dbtExec}`, ['deps'])
     }
 
     // check for file changes
