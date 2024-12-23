@@ -1,0 +1,8 @@
+[project]
+dependencies = [
+  "sqlfluff>=3.0.0,<4.0.0",
+  "dbt-core>=1.9,<1.10",
+  "dbt-snowflake>=1.9,<1.10",
+  "dbt-materialize>=1.8,<1.10",
+  "sqlfluff-templater-dbt>=3.0.0,<4.0"
+]
