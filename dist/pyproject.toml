@@ -1,4 +1,10 @@
 [project]
+name = "SQLFluff Action"
+version = "0.1.0"
+description = "A Python project using SQLFluff"
+authors = [
+  { name = "tetracionist", email = "tetracionist@gmail.com" }
+]
 dependencies = [
   "sqlfluff>=3.0.0,<4.0.0",
   "dbt-core>=1.9,<1.10",
