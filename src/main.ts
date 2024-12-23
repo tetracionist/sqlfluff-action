@@ -76,7 +76,7 @@ async function setupDependencies(
 
   try {
     await exec.exec('uv', ['venv'])
-    await exec.exec('uv', ['pip', 'sync', `${pyprojectPath}`])
+    await exec.exec('uv', ['pip', 'install', '-r', `${pyprojectPath}`])
     console.log('Successfully installed dependencies.')
   } catch (error) {
     console.error('Failed to install dependencies:', error)
