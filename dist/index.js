@@ -25738,16 +25738,20 @@ async function run() {
         if (dbtProfilesDir) {
             core.info(`DBT profiles directory set to:: ${dbtProfilesDir}`);
         }
-        await exec.exec('python', [
-            '-m',
-            'sqlfluff',
+        const args = [
             'lint',
             '--dialect',
-            `${sqlfluffDialect}`,
+            sqlfluffDialect,
             '--templater',
-            `${sqlfluffTemplater}`,
-            '.'
-        ]);
+            sqlfluffTemplater
+        ];
+        // Conditionally add the dbt-project-dir flag if the templater is dbt
+        if (sqlfluffTemplater === 'dbt' && dbtProjectDir) {
+            args.push('--dbt-project-dir', dbtProjectDir);
+        }
+        // Add the path (.) at the end
+        args.push('.');
+        await exec.exec('python', ['-m', 'sqlfluff', ...args]);
     }
     catch (error) {
         // Fail the workflow run if an error occurs
