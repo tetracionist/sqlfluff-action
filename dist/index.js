@@ -25738,6 +25738,7 @@ async function run() {
         if (dbtProfilesDir) {
             core.info(`DBT profiles directory set to:: ${dbtProfilesDir}`);
             process.env.DBT_PROFILES_DIR = dbtProfilesDir;
+            await exec.exec('dbt deps');
         }
         await exec.exec('python', [
             '-m',
