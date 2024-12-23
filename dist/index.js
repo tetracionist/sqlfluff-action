@@ -25689,8 +25689,7 @@ async function getGitDiffFiles() {
         '--name-only',
         '--diff-filter=ACMRU',
         '--relative',
-        'main',
-        'HEAD',
+        `${process.env.GITHUB_BASE_REF}`,
         '--',
         '*.sql'
     ], options);
