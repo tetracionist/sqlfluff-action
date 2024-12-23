@@ -87,8 +87,10 @@ export async function run(): Promise<void> {
     }
 
     if (dbtProfilesDir) {
-      core.info(`DBT profiles directory set to:: ${dbtProfilesDir}`)
+      core.info(`DBT profiles directory set to: ${dbtProfilesDir}`)
       process.env.DBT_PROFILES_DIR = dbtProfilesDir
+      process.env.DBT_TARGET = 'sqlfluff'
+      core.info(`DBT target set to: sqlfluff`)
       await exec.exec('dbt deps')
     }
 
