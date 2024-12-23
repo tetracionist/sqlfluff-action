@@ -25710,7 +25710,9 @@ function resolveAndCheckPath(inputPath) {
 async function setupUV() {
     // Use UV to manage dependencies
     try {
-        await exec.exec('python', ['-m', 'pip', 'install', 'uv']);
+        await exec.exec('python', ['-m', 'pip', 'install', '--user', 'pipx']);
+        await exec.exec('pipx', ['install', 'uv']);
+        await exec.exec('pipx', ['ensurepath']);
         console.log('Successfully installed uv.');
     }
     catch (error) {
@@ -25721,14 +25723,7 @@ async function setupUV() {
 async function setupDependencies(pyprojectPath) {
     // Use UV to manage dependencies
     try {
-        await exec.exec('python', [
-            '-m',
-            'uv',
-            'pip',
-            'install',
-            '-r',
-            `${pyprojectPath}`
-        ]);
+        await exec.exec('uv', ['pip', 'sync', `${pyprojectPath}`]);
         console.log('Successfully installed dependencies.');
     }
     catch (error) {
@@ -25754,6 +25749,7 @@ async function run() {
         const dbtProfilesDir = core.getInput('dbt-profiles-path') || undefined;
         const sqlfluffDialect = core.getInput('sqlfluff-dialect');
         const sqlfluffTemplater = core.getInput('sqlfluff-templater');
+        const sqlfluffExec = path.resolve('.venv/bin/sqlfluff');
         if (dbtProjectDir) {
             core.info(`DBT project directory set to: ${dbtProjectDir}`);
             // change directory to dbt project directory
@@ -25773,9 +25769,7 @@ async function run() {
             console.log('No SQL files changed.');
             return;
         }
-        await exec.exec('python', [
-            '-m',
-            'sqlfluff',
+        await exec.exec(`${sqlfluffExec}`, [
             'lint',
             '--dialect',
             `${sqlfluffDialect}`,

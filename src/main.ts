@@ -3,6 +3,7 @@ import * as exec from '@actions/exec'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as github from '@actions/github'
+import * as os from 'os'
 
 /**
  * The main function for the action.
@@ -58,7 +59,9 @@ function resolveAndCheckPath(
 async function setupUV(): Promise<void> {
   // Use UV to manage dependencies
   try {
-    await exec.exec('python', ['-m', 'pip', 'install', 'uv'])
+    await exec.exec('python', ['-m', 'pip', 'install', '--user', 'pipx'])
+    await exec.exec('pipx', ['install', 'uv'])
+    await exec.exec('pipx', ['ensurepath'])
     console.log('Successfully installed uv.')
   } catch (error) {
     console.error('Failed to install uv:', error)
@@ -70,15 +73,9 @@ async function setupDependencies(
   pyprojectPath: string | undefined
 ): Promise<void> {
   // Use UV to manage dependencies
+
   try {
-    await exec.exec('python', [
-      '-m',
-      'uv',
-      'pip',
-      'install',
-      '-r',
-      `${pyprojectPath}`
-    ])
+    await exec.exec('uv', ['pip', 'sync', `${pyprojectPath}`])
     console.log('Successfully installed dependencies.')
   } catch (error) {
     console.error('Failed to install dependencies:', error)
@@ -110,11 +107,13 @@ export async function run(): Promise<void> {
     const dbtProfilesDir = core.getInput('dbt-profiles-path') || undefined
     const sqlfluffDialect = core.getInput('sqlfluff-dialect')
     const sqlfluffTemplater = core.getInput('sqlfluff-templater')
+    const sqlfluffExec = path.resolve('.venv/bin/sqlfluff')
 
     if (dbtProjectDir) {
       core.info(`DBT project directory set to: ${dbtProjectDir}`)
 
       // change directory to dbt project directory
+
       process.chdir(path.resolve(dbtProjectDir))
       core.info(`Changed working directory to: ${dbtProjectDir}`)
     }
@@ -135,9 +134,7 @@ export async function run(): Promise<void> {
       return
     }
 
-    await exec.exec('python', [
-      '-m',
-      'sqlfluff',
+    await exec.exec(`${sqlfluffExec}`, [
       'lint',
       '--dialect',
       `${sqlfluffDialect}`,
