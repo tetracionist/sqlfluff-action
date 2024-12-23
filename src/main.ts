@@ -94,6 +94,8 @@ export async function run(): Promise<void> {
       await exec.exec('dbt deps')
     }
 
+    core.info(`SQLFLUFF PASSWORD: ${process.env.SQLFLUFF_PASSWORD}`)
+
     await exec.exec('python', [
       '-m',
       'sqlfluff',
