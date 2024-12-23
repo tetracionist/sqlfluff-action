@@ -34,7 +34,7 @@ async function getGitDiffFiles(): Promise<string[]> {
       '--name-only',
       '--diff-filter=ACMRU',
       '--relative',
-      `${process.env.GITHUB_BASE_REF}`,
+      `origin/${process.env.GITHUB_BASE_REF}`,
       '--',
       '*.sql'
     ],
