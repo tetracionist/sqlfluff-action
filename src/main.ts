@@ -1,24 +1,93 @@
-import * as core from '@actions/core'
-import { wait } from './wait'
+import * as core from '@actions/core';
+import * as exec from '@actions/exec';
+import * as path from 'path'
+import * as fs from 'fs'
+import * as github from '@actions/github';
+
 
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
  */
+
+function resolveAndCheckPath(inputPath: string | undefined): string | undefined {
+  if (!inputPath) {
+    return undefined; // Return undefined if no input is provided
+  }
+
+  const resolvedPath = path.resolve(inputPath);
+
+  // Return the resolved path only if it exists
+  return fs.existsSync(resolvedPath) ? resolvedPath : undefined;
+}
+
+async function setupUV(): Promise<void> {
+
+  // Use UV to manage dependencies 
+  try {
+    await exec.exec("python", ["-m", "pip", "install", "uv"]);
+    console.log("Successfully installed uv.");
+  } catch (error) {
+    console.error("Failed to install uv:", error);
+    throw error;
+  }
+}
+
+async function setupDependencies(pyprojectPath: string | undefined): Promise<void> {
+
+  // Use UV to manage dependencies 
+  try {
+    await exec.exec("python", ["-m", "uv", "pip", "install", "-r", `${pyprojectPath}`]);
+    console.log("Successfully installed dependencies.");
+  } catch (error) {
+    console.error("Failed to install dependencies:", error);
+    throw error;
+  }
+}
+
+
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    console.log("Installing uv...");
+    await setupUV();
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    // check if there is a pyproject.toml we can use
+    let pyprojectPath = core.getInput("pyproject-path");
+    core.info(`Received pyproject.toml path: ${pyprojectPath}`);
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    if (!pyprojectPath) {
+      pyprojectPath = path.resolve(__dirname, "pyproject.toml");
+      core.info(`No custom path provided. Using default pyproject.toml at: ${pyprojectPath}`);
+    }
+
+    // Install the dependencies using uv
+    await setupDependencies(pyprojectPath);
+
+
+    // check what type of project this is (e.g. Snowflake with dbt)
+    const dbtProjectDir = core.getInput("dbt-project-path") || undefined;
+    const dbtProfilesDir = core.getInput("dbt-profiles-path") || undefined;
+    const sqlfluffDialect = core.getInput("sqlfluff-dialect")
+    const sqlfluffTemplater = core.getInput("sqlfluff-templater")
+
+    if (dbtProjectDir){
+      core.info(`DBT project directory set to: ${dbtProjectDir}`)
+      
+      // change directory to dbt project directory
+      process.chdir(path.resolve(dbtProjectDir));
+      core.info(`Changed working directory to: ${dbtProjectDir}`);
+    }
+    
+    if (dbtProfilesDir){
+      core.info(`DBT profiles directory set to:: ${dbtProfilesDir}`)
+    }
+
+
+    await exec.exec("python", ["-m", "sqlfluff", "lint", "--dialect", `${sqlfluffDialect}`, "--templater", `${sqlfluffTemplater}`, "."])
+
+
+
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)

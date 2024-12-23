@@ -1,23 +1,41 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'SQLFluff Action'
+description: 'Uses Typescript to run SQLFluff'
+author: 'tetracionist'
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: 'heart'
-  color: 'red'
+  icon: 'airplane'
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
-    required: true
-    default: '1000'
 
-# Define your outputs here.
+  sqlfluff-dialect:
+    description: 'What dialect should sqlfluff use to check?'
+    required: true
+    default: 'snowflake'
+
+  sqlfluff-templater:
+    description: 'What templater should be used (e.g. dbt)?'
+    required: false
+    default: 'jinja'
+
+  dbt-project-path:
+    description: 'Where is the dbt project?'
+    required: false
+
+  dbt-profiles-path:
+    description: 'Where are the dbt profiles?'
+    required: false
+
+  pyproject-path:
+    description: "Path to the pyproject.toml file (optional)"
+    required: false
+
+  github-token:
+    description: "GitHub token for accessing the API"
+    required: true
+
 outputs:
-  time:
-    description: 'Your output description here'
+  sqlfluff-version:
+    description: 'The version of sqlfluff that was used'
 
 runs:
   using: node20
