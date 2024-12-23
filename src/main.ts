@@ -88,25 +88,19 @@ export async function run(): Promise<void> {
 
     if (dbtProfilesDir) {
       core.info(`DBT profiles directory set to:: ${dbtProfilesDir}`)
+      process.env.DBT_PROFILES_DIR = dbtProfilesDir
     }
 
-    const args = [
+    await exec.exec('python', [
+      '-m',
+      'sqlfluff',
       'lint',
       '--dialect',
-      sqlfluffDialect,
+      `${sqlfluffDialect}`,
       '--templater',
-      sqlfluffTemplater
-    ]
-
-    // Conditionally add the dbt-project-dir flag if the templater is dbt
-    if (sqlfluffTemplater === 'dbt' && dbtProjectDir) {
-      args.push('--dbt-project-dir', dbtProjectDir)
-    }
-
-    // Add the path (.) at the end
-    args.push('.')
-
-    await exec.exec('python', ['-m', 'sqlfluff', ...args])
+      `${sqlfluffTemplater}`,
+      '.'
+    ])
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
