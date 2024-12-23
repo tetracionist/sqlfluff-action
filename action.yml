@@ -6,7 +6,6 @@ branding:
   icon: 'airplane'
 
 inputs:
-
   sqlfluff-dialect:
     description: 'What dialect should sqlfluff use to check?'
     required: true
@@ -26,11 +25,11 @@ inputs:
     required: false
 
   pyproject-path:
-    description: "Path to the pyproject.toml file (optional)"
+    description: 'Path to the pyproject.toml file (optional)'
     required: false
 
   github-token:
-    description: "GitHub token for accessing the API"
+    description: 'GitHub token for accessing the API'
     required: true
 
 outputs:
