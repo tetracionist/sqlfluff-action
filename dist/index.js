@@ -25674,6 +25674,30 @@ const fs = __importStar(__nccwpck_require__(9896));
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
  */
+async function getGitDiffFiles() {
+    let stdout = '';
+    const options = {
+        listeners: {
+            stdout: (data) => {
+                stdout += data.toString();
+            }
+        }
+    };
+    // Run the git diff command
+    await exec.exec('git', [
+        'diff',
+        '--name-only',
+        '--diff-filter=ACMRU',
+        'origin/main',
+        '--',
+        '*.sql'
+    ], options);
+    // Process and return the list of files
+    return stdout
+        .trim()
+        .split('\n')
+        .filter(file => file.length > 0);
+}
 function resolveAndCheckPath(inputPath) {
     if (!inputPath) {
         return undefined; // Return undefined if no input is provided
@@ -25742,7 +25766,12 @@ async function run() {
             core.info(`DBT target set to: sqlfluff`);
             await exec.exec('dbt deps');
         }
-        core.info(`SQLFLUFF PASSWORD: ${process.env.SQLFLUFF_PASSWORD}`);
+        // check for file changes
+        const filePaths = await getGitDiffFiles();
+        if (filePaths.length === 0) {
+            console.log('No SQL files changed.');
+            return;
+        }
         await exec.exec('python', [
             '-m',
             'sqlfluff',
@@ -25751,7 +25780,7 @@ async function run() {
             `${sqlfluffDialect}`,
             '--templater',
             `${sqlfluffTemplater}`,
-            '.'
+            ...filePaths
         ]);
     }
     catch (error) {

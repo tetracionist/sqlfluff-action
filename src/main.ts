@@ -9,6 +9,38 @@ import * as github from '@actions/github'
  * @returns {Promise<void>} Resolves when the action is complete.
  */
 
+async function getGitDiffFiles(): Promise<string[]> {
+  let stdout = ''
+
+  const options: exec.ExecOptions = {
+    listeners: {
+      stdout: (data: Buffer) => {
+        stdout += data.toString()
+      }
+    }
+  }
+
+  // Run the git diff command
+  await exec.exec(
+    'git',
+    [
+      'diff',
+      '--name-only',
+      '--diff-filter=ACMRU',
+      'origin/main',
+      '--',
+      '*.sql'
+    ],
+    options
+  )
+
+  // Process and return the list of files
+  return stdout
+    .trim()
+    .split('\n')
+    .filter(file => file.length > 0)
+}
+
 function resolveAndCheckPath(
   inputPath: string | undefined
 ): string | undefined {
@@ -94,7 +126,13 @@ export async function run(): Promise<void> {
       await exec.exec('dbt deps')
     }
 
-    core.info(`SQLFLUFF PASSWORD: ${process.env.SQLFLUFF_PASSWORD}`)
+    // check for file changes
+    const filePaths = await getGitDiffFiles()
+
+    if (filePaths.length === 0) {
+      console.log('No SQL files changed.')
+      return
+    }
 
     await exec.exec('python', [
       '-m',
@@ -104,7 +142,7 @@ export async function run(): Promise<void> {
       `${sqlfluffDialect}`,
       '--templater',
       `${sqlfluffTemplater}`,
-      '.'
+      ...filePaths
     ])
   } catch (error) {
     // Fail the workflow run if an error occurs
