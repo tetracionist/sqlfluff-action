@@ -11,6 +11,11 @@ import * as os from 'os'
  */
 
 async function getGitDiffFiles(): Promise<string[]> {
+  const baseRef = process.env.GITHUB_BASE_REF || 'main'
+
+  console.log('Fetching main branch...')
+  await exec.exec('git', ['fetch', 'origin', `${baseRef}`])
+
   let stdout = ''
 
   const options: exec.ExecOptions = {

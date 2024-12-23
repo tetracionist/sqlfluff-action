@@ -25675,6 +25675,9 @@ const fs = __importStar(__nccwpck_require__(9896));
  * @returns {Promise<void>} Resolves when the action is complete.
  */
 async function getGitDiffFiles() {
+    const baseRef = process.env.GITHUB_BASE_REF || 'main';
+    console.log('Fetching main branch...');
+    await exec.exec('git', ['fetch', 'origin', `${baseRef}`]);
     let stdout = '';
     const options = {
         listeners: {
