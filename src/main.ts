@@ -97,7 +97,7 @@ function resolveAndCheckPath(
 async function setupUV(): Promise<void> {
   // Use UV to manage dependencies
   try {
-    await exec.exec('python', ['-m', 'pip', 'install', '--user', 'pipx'])
+    await exec.exec('python', ['-m', 'pip', 'install', 'pipx'])
     await exec.exec('pipx', ['install', 'uv'])
     console.log('Successfully installed uv.')
   } catch (error) {
@@ -126,13 +126,8 @@ async function setupDependencies(
   // Use UV to manage dependencies
 
   try {
-    await exec.exec('/root/.local/bin/uv', ['venv'])
-    await exec.exec('/root/.local/bin/uv', [
-      'pip',
-      'install',
-      '-r',
-      `${pyprojectPath}`
-    ])
+    await exec.exec('uv', ['venv'])
+    await exec.exec('uv', ['pip', 'install', '-r', `${pyprojectPath}`])
     console.log('Successfully installed dependencies.')
   } catch (error) {
     console.error('Failed to install dependencies:', error)
