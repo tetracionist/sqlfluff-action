@@ -3,7 +3,8 @@ description: 'Uses Typescript to run SQLFluff'
 author: 'tetracionist'
 
 branding:
-  icon: 'airplane'
+  icon: 'check-circle'
+  color: 'orange'
 
 inputs:
   sqlfluff-dialect:
