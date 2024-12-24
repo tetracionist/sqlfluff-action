@@ -25774,7 +25774,7 @@ async function processLintOutput(lintOutput) {
 }
 async function runReviewdog(rdjsonlFile) {
     const rdFileContent = fs.readFileSync(rdjsonlFile);
-    await exec.exec('reviewdog', ['-f=rdjsonl', '-reporter=github-pr-review'], {
+    await exec.exec('reviewdog', ['-f=rdjsonl', '-filter-mode=file', '-reporter=github-pr-review'], {
         input: rdFileContent
     });
 }
