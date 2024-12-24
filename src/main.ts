@@ -158,7 +158,7 @@ async function processLintOutput(lintOutput: LintResult[]) {
 
   const rdjsonlContent = rdjsonlines
     .map(line => JSON.stringify(line))
-    .join('/n')
+    .join('\n')
   fs.writeFileSync(rdLintResultsFile, rdjsonlContent, 'utf-8')
 }
 

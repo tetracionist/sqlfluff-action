@@ -25769,7 +25769,7 @@ async function processLintOutput(lintOutput) {
     })));
     const rdjsonlContent = rdjsonlines
         .map(line => JSON.stringify(line))
-        .join('/n');
+        .join('\n');
     fs.writeFileSync(rdLintResultsFile, rdjsonlContent, 'utf-8');
 }
 async function runReviewdog(rdjsonlFile) {
