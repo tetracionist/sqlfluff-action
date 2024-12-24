@@ -25757,7 +25757,7 @@ async function listDirectory(dir) {
 async function setupDependencies(pyprojectPath) {
     // Use UV to manage dependencies
     try {
-        listDirectory('/root/.local/bin');
+        await listDirectory('/root/.local/bin');
         await exec.exec('uv', ['venv']);
         await exec.exec('uv', ['pip', 'install', '-r', `${pyprojectPath}`]);
         console.log('Successfully installed dependencies.');
