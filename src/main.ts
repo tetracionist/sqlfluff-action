@@ -81,30 +81,6 @@ async function getGitDiffFiles(): Promise<string[]> {
     .filter(file => file.length > 0)
 }
 
-async function runSqlfluffWithFileOutput(
-  sqlfluffExec: string,
-  args: string[],
-  outputFile: string
-): Promise<void> {
-  const writeStream = fs.createWriteStream(outputFile)
-
-  const options = {
-    listeners: {
-      stdout: (data: Buffer) => {
-        writeStream.write(data)
-      }
-    }
-  }
-
-  try {
-    await exec.exec(sqlfluffExec, args, options)
-    writeStream.end() // Ensure the file is properly closed
-    console.log(`Output written to ${outputFile}`)
-  } catch (error) {
-    writeStream.end() // Close the file on error
-  }
-}
-
 function resolveAndCheckPath(
   inputPath: string | undefined
 ): string | undefined {
@@ -256,16 +232,7 @@ export async function run(): Promise<void> {
       return
     }
 
-    let stdout = ''
-    const lintJsonOptions = {
-      listeners: {
-        stdout: (data: Buffer) => {
-          stdout += data.toString()
-        }
-      }
-    }
-
-    const sqlfluffArgs = [
+    await exec.exec(`${sqlfluffExec}`, [
       'lint',
       '--dialect',
       `${sqlfluffDialect}`,
@@ -273,22 +240,25 @@ export async function run(): Promise<void> {
       `${sqlfluffTemplater}`,
       ...filePaths,
       '--format',
-      'json'
-    ]
+      'json',
+      '--write-output',
+      'lint-results.json'
+    ])
 
-    const lintOutputFile = path.resolve('./lint-output.json')
-    await runSqlfluffWithFileOutput(sqlfluffExec, sqlfluffArgs, lintOutputFile)
-
-    if (fs.existsSync(lintOutputFile)) {
-      const content = fs.readFileSync(lintOutputFile, 'utf-8')
+    if (fs.existsSync('lint-results.json')) {
+      const content = fs.readFileSync('lint-results.json', 'utf-8')
       let lintResults = JSON.parse(content)
       console.log('Parsed Lint Results:', lintResults)
+
+      await processLintOutput(lintResults)
     }
 
     // process as rdjsonl
-    await processLintOutput(lintResults)
+    core.info('setup review dog')
+    await setupReviewDog()
 
     core.info('running reviewdog')
+
     await runReviewdog(rdLintResultsFile)
   } catch (error) {
     // Fail the workflow run if an error occurs

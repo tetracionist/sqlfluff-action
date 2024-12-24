@@ -25703,24 +25703,6 @@ async function getGitDiffFiles() {
         .split('\n')
         .filter(file => file.length > 0);
 }
-async function runSqlfluffWithFileOutput(sqlfluffExec, args, outputFile) {
-    const writeStream = fs.createWriteStream(outputFile);
-    const options = {
-        listeners: {
-            stdout: (data) => {
-                writeStream.write(data);
-            }
-        }
-    };
-    try {
-        await exec.exec(sqlfluffExec, args, options);
-        writeStream.end(); // Ensure the file is properly closed
-        console.log(`Output written to ${outputFile}`);
-    }
-    catch (error) {
-        writeStream.end(); // Close the file on error
-    }
-}
 function resolveAndCheckPath(inputPath) {
     if (!inputPath) {
         return undefined; // Return undefined if no input is provided
@@ -25847,15 +25829,7 @@ async function run() {
             core.info('No SQL files changed.');
             return;
         }
-        let stdout = '';
-        const lintJsonOptions = {
-            listeners: {
-                stdout: (data) => {
-                    stdout += data.toString();
-                }
-            }
-        };
-        const sqlfluffArgs = [
+        await exec.exec(`${sqlfluffExec}`, [
             'lint',
             '--dialect',
             `${sqlfluffDialect}`,
@@ -25863,17 +25837,19 @@ async function run() {
             `${sqlfluffTemplater}`,
             ...filePaths,
             '--format',
-            'json'
-        ];
-        const lintOutputFile = path.resolve('./lint-output.json');
-        await runSqlfluffWithFileOutput(sqlfluffExec, sqlfluffArgs, lintOutputFile);
-        if (fs.existsSync(lintOutputFile)) {
-            const content = fs.readFileSync(lintOutputFile, 'utf-8');
+            'json',
+            '--write-output',
+            'lint-results.json'
+        ]);
+        if (fs.existsSync('lint-results.json')) {
+            const content = fs.readFileSync('lint-results.json', 'utf-8');
             let lintResults = JSON.parse(content);
             console.log('Parsed Lint Results:', lintResults);
+            await processLintOutput(lintResults);
         }
         // process as rdjsonl
-        await processLintOutput(lintResults);
+        core.info('setup review dog');
+        await setupReviewDog();
         core.info('running reviewdog');
         await runReviewdog(rdLintResultsFile);
     }
