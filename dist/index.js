@@ -25716,8 +25716,6 @@ async function setupUV() {
     try {
         await exec.exec('python', ['-m', 'pip', 'install', '--user', 'pipx']);
         await exec.exec('pipx', ['install', 'uv']);
-        core.info(`Adding /root/.local/bin to PATH`);
-        process.env.PATH = `/root/.local/bin:${process.env.PATH}`;
         console.log('Successfully installed uv.');
     }
     catch (error) {
@@ -25742,8 +25740,13 @@ async function setupReviewDog() {
 async function setupDependencies(pyprojectPath) {
     // Use UV to manage dependencies
     try {
-        await exec.exec('uv', ['venv']);
-        await exec.exec('uv', ['pip', 'install', '-r', `${pyprojectPath}`]);
+        await exec.exec('/root/.local/bin/uv', ['venv']);
+        await exec.exec('/root/.local/bin/uv', [
+            'pip',
+            'install',
+            '-r',
+            `${pyprojectPath}`
+        ]);
         console.log('Successfully installed dependencies.');
     }
     catch (error) {
