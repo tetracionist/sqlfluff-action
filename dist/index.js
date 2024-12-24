@@ -25719,7 +25719,6 @@ async function runSqlfluffWithFileOutput(sqlfluffExec, args, outputFile) {
     }
     catch (error) {
         writeStream.end(); // Close the file on error
-        throw error;
     }
 }
 function resolveAndCheckPath(inputPath) {

@@ -102,7 +102,6 @@ async function runSqlfluffWithFileOutput(
     console.log(`Output written to ${outputFile}`)
   } catch (error) {
     writeStream.end() // Close the file on error
-    throw error
   }
 }
 
