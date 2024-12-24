@@ -36,6 +36,11 @@ inputs:
     description: 'GitHub token for accessing the API'
     required: true
 
+  review-dog-filter-mode:
+    description:
+    default: file
+    required: false
+
 outputs:
   sqlfluff-version:
     description: 'The version of sqlfluff that was used'

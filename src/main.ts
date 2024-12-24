@@ -2,8 +2,6 @@ import * as core from '@actions/core'
 import * as exec from '@actions/exec'
 import * as path from 'path'
 import * as fs from 'fs'
-import * as github from '@actions/github'
-import * as os from 'os'
 
 /**
  * The main function for the action.
