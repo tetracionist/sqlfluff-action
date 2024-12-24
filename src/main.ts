@@ -120,12 +120,32 @@ async function setupReviewDog(): Promise<void> {
   }
 }
 
+async function listDirectory(dir: string): Promise<void> {
+  let output = '' // To capture stdout
+
+  const options = {
+    listeners: {
+      stdout: (data: Buffer) => {
+        output += data.toString()
+      }
+    }
+  }
+
+  try {
+    await exec.exec('ls', ['-l', dir], options)
+    core.info(`Contents of ${dir}:\n${output}`)
+  } catch (error) {
+    console.error(`Error listing directory ${dir}:`, error)
+  }
+}
+
 async function setupDependencies(
   pyprojectPath: string | undefined
 ): Promise<void> {
   // Use UV to manage dependencies
 
   try {
+    listDirectory('/root/.local/bin')
     await exec.exec('uv', ['venv'])
     await exec.exec('uv', ['pip', 'install', '-r', `${pyprojectPath}`])
     console.log('Successfully installed dependencies.')

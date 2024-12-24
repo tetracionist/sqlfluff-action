@@ -25737,9 +25737,27 @@ async function setupReviewDog() {
         throw error;
     }
 }
+async function listDirectory(dir) {
+    let output = ''; // To capture stdout
+    const options = {
+        listeners: {
+            stdout: (data) => {
+                output += data.toString();
+            }
+        }
+    };
+    try {
+        await exec.exec('ls', ['-l', dir], options);
+        core.info(`Contents of ${dir}:\n${output}`);
+    }
+    catch (error) {
+        console.error(`Error listing directory ${dir}:`, error);
+    }
+}
 async function setupDependencies(pyprojectPath) {
     // Use UV to manage dependencies
     try {
+        listDirectory('/root/.local/bin');
         await exec.exec('uv', ['venv']);
         await exec.exec('uv', ['pip', 'install', '-r', `${pyprojectPath}`]);
         console.log('Successfully installed dependencies.');
