@@ -25773,20 +25773,10 @@ async function processLintOutput(lintOutput) {
     fs.writeFileSync(rdLintResultsFile, rdjsonlContent, 'utf-8');
 }
 async function runReviewdog(rdjsonlFile) {
-    await exec.exec('reviewdog', [
-        '-name',
-        'sqlfluff',
-        '-f',
-        'rdjsonl',
-        '-reporter',
-        'github-pr-check',
-        '-level',
-        'warning',
-        '-filter-mode',
-        'added',
-        '-input',
-        rdjsonlFile
-    ]);
+    const rdFileContent = fs.readFileSync(rdjsonlFile);
+    await exec.exec('reviewdog', ['-f=rdjsonl', '-reporter=github-pr-review'], {
+        input: rdFileContent
+    });
 }
 async function run() {
     try {

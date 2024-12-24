@@ -163,20 +163,11 @@ async function processLintOutput(lintOutput: LintResult[]) {
 }
 
 async function runReviewdog(rdjsonlFile: string): Promise<void> {
-  await exec.exec('reviewdog', [
-    '-name',
-    'sqlfluff',
-    '-f',
-    'rdjsonl',
-    '-reporter',
-    'github-pr-check',
-    '-level',
-    'warning',
-    '-filter-mode',
-    'added',
-    '-input',
-    rdjsonlFile
-  ])
+  const rdFileContent = fs.readFileSync(rdjsonlFile)
+
+  await exec.exec('reviewdog', ['-f=rdjsonl', '-reporter=github-pr-review'], {
+    input: rdFileContent
+  })
 }
 
 export async function run(): Promise<void> {
