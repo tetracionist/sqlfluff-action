@@ -24,6 +24,10 @@ inputs:
     description: 'Where are the dbt profiles?'
     required: false
 
+  dbt-target:
+    description: 'Which target should we use'
+    required: false
+
   pyproject-path:
     description: 'Path to the pyproject.toml file (optional)'
     required: false

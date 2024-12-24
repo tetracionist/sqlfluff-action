@@ -25674,6 +25674,7 @@ const fs = __importStar(__nccwpck_require__(9896));
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
  */
+const rdLintResultsFile = path.resolve('./lint-results.rdjsonl');
 async function getGitDiffFiles() {
     const baseRef = process.env.GITHUB_BASE_REF || 'main';
     console.log('Fetching main branch...');
@@ -25723,6 +25724,20 @@ async function setupUV() {
         throw error;
     }
 }
+async function setupReviewDog() {
+    try {
+        console.log('Installing Reviewdog...');
+        await exec.exec('bash', [
+            '-c',
+            'curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin'
+        ]);
+        console.log('Reviewdog installation completed.');
+    }
+    catch (error) {
+        console.error('Failed to install Reviewdog:', error);
+        throw error;
+    }
+}
 async function setupDependencies(pyprojectPath) {
     // Use UV to manage dependencies
     try {
@@ -25734,6 +25749,45 @@ async function setupDependencies(pyprojectPath) {
         console.error('Failed to install dependencies:', error);
         throw error;
     }
+}
+async function processLintOutput(lintOutput) {
+    const rdjsonlines = lintOutput.flatMap(result => result.violations.map(violation => ({
+        message: violation.description,
+        location: {
+            path: `${result.filepath}`,
+            range: {
+                start: {
+                    line: violation.start_line_no,
+                    column: violation.start_line_pos
+                },
+                end: {
+                    line: violation.end_line_no,
+                    column: violation.end_line_pos
+                }
+            }
+        },
+        severity: 'ERROR'
+    })));
+    const rdjsonlContent = rdjsonlines
+        .map(line => JSON.stringify(line))
+        .join('/n');
+    fs.writeFileSync(rdLintResultsFile, rdjsonlContent, 'utf-8');
+}
+async function runReviewdog(rdjsonlFile) {
+    await exec.exec('reviewdog', [
+        '-name',
+        'sqlfluff',
+        '-f',
+        'rdjsonl',
+        '-reporter',
+        'github-pr-check',
+        '-level',
+        'warning',
+        '-filter-mode',
+        'added',
+        '-input',
+        rdjsonlFile
+    ]);
 }
 async function run() {
     try {
@@ -25755,6 +25809,7 @@ async function run() {
         const sqlfluffTemplater = core.getInput('sqlfluff-templater');
         const dbtExec = path.resolve('.venv/bin/dbt');
         const sqlfluffExec = path.resolve('.venv/bin/sqlfluff');
+        const workspaceDir = path.resolve('.');
         if (dbtProjectDir) {
             core.info(`DBT project directory set to: ${dbtProjectDir}`);
             // change directory to dbt project directory
@@ -25771,17 +25826,32 @@ async function run() {
         // check for file changes
         const filePaths = await getGitDiffFiles();
         if (filePaths.length === 0) {
-            console.log('No SQL files changed.');
+            core.info('No SQL files changed.');
             return;
         }
+        let stdout = '';
+        const lintJsonOptions = {
+            listeners: {
+                stdout: (data) => {
+                    stdout += data.toString();
+                }
+            }
+        };
         await exec.exec(`${sqlfluffExec}`, [
             'lint',
             '--dialect',
             `${sqlfluffDialect}`,
             '--templater',
             `${sqlfluffTemplater}`,
-            ...filePaths
-        ]);
+            ...filePaths,
+            '--format',
+            'json'
+        ], lintJsonOptions);
+        const lintResults = JSON.parse(stdout);
+        // process as rdjsonl
+        await processLintOutput(lintResults);
+        core.info('running reviewdog');
+        await runReviewdog(rdLintResultsFile);
     }
     catch (error) {
         // Fail the workflow run if an error occurs

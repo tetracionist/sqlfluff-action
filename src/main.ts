@@ -10,6 +10,39 @@ import * as os from 'os'
  * @returns {Promise<void>} Resolves when the action is complete.
  */
 
+const rdLintResultsFile = path.resolve('./lint-results.rdjsonl')
+
+type Violation = {
+  description: string
+  start_line_no: number
+  start_line_pos: number
+  end_line_no: number
+  end_line_pos: number
+}
+
+type LintResult = {
+  filepath: string
+  violations: Violation[]
+}
+
+type RdjsonlLine = {
+  message: string
+  location: {
+    path: string
+    range: {
+      start: {
+        line: number
+        column: number
+      }
+      end: {
+        line: number
+        column: number
+      }
+    }
+  }
+  severity: string
+}
+
 async function getGitDiffFiles(): Promise<string[]> {
   const baseRef = process.env.GITHUB_BASE_REF || 'main'
 
@@ -74,6 +107,20 @@ async function setupUV(): Promise<void> {
   }
 }
 
+async function setupReviewDog(): Promise<void> {
+  try {
+    console.log('Installing Reviewdog...')
+    await exec.exec('bash', [
+      '-c',
+      'curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin'
+    ])
+    console.log('Reviewdog installation completed.')
+  } catch (error) {
+    console.error('Failed to install Reviewdog:', error)
+    throw error
+  }
+}
+
 async function setupDependencies(
   pyprojectPath: string | undefined
 ): Promise<void> {
@@ -87,6 +134,50 @@ async function setupDependencies(
     console.error('Failed to install dependencies:', error)
     throw error
   }
+}
+
+async function processLintOutput(lintOutput: LintResult[]) {
+  const rdjsonlines = lintOutput.flatMap(result =>
+    result.violations.map(violation => ({
+      message: violation.description,
+      location: {
+        path: `${result.filepath}`,
+        range: {
+          start: {
+            line: violation.start_line_no,
+            column: violation.start_line_pos
+          },
+          end: {
+            line: violation.end_line_no,
+            column: violation.end_line_pos
+          }
+        }
+      },
+      severity: 'ERROR'
+    }))
+  )
+
+  const rdjsonlContent = rdjsonlines
+    .map(line => JSON.stringify(line))
+    .join('/n')
+  fs.writeFileSync(rdLintResultsFile, rdjsonlContent, 'utf-8')
+}
+
+async function runReviewdog(rdjsonlFile: string): Promise<void> {
+  await exec.exec('reviewdog', [
+    '-name',
+    'sqlfluff',
+    '-f',
+    'rdjsonl',
+    '-reporter',
+    'github-pr-check',
+    '-level',
+    'warning',
+    '-filter-mode',
+    'added',
+    '-input',
+    rdjsonlFile
+  ])
 }
 
 export async function run(): Promise<void> {
@@ -115,12 +206,12 @@ export async function run(): Promise<void> {
     const sqlfluffTemplater = core.getInput('sqlfluff-templater')
     const dbtExec = path.resolve('.venv/bin/dbt')
     const sqlfluffExec = path.resolve('.venv/bin/sqlfluff')
+    const workspaceDir = path.resolve('.')
 
     if (dbtProjectDir) {
       core.info(`DBT project directory set to: ${dbtProjectDir}`)
 
       // change directory to dbt project directory
-
       process.chdir(path.resolve(dbtProjectDir))
       core.info(`Changed working directory to: ${dbtProjectDir}`)
     }
@@ -137,18 +228,41 @@ export async function run(): Promise<void> {
     const filePaths = await getGitDiffFiles()
 
     if (filePaths.length === 0) {
-      console.log('No SQL files changed.')
+      core.info('No SQL files changed.')
       return
     }
 
-    await exec.exec(`${sqlfluffExec}`, [
-      'lint',
-      '--dialect',
-      `${sqlfluffDialect}`,
-      '--templater',
-      `${sqlfluffTemplater}`,
-      ...filePaths
-    ])
+    let stdout = ''
+    const lintJsonOptions = {
+      listeners: {
+        stdout: (data: Buffer) => {
+          stdout += data.toString()
+        }
+      }
+    }
+
+    await exec.exec(
+      `${sqlfluffExec}`,
+      [
+        'lint',
+        '--dialect',
+        `${sqlfluffDialect}`,
+        '--templater',
+        `${sqlfluffTemplater}`,
+        ...filePaths,
+        '--format',
+        'json'
+      ],
+      lintJsonOptions
+    )
+
+    const lintResults = JSON.parse(stdout)
+
+    // process as rdjsonl
+    await processLintOutput(lintResults)
+
+    core.info('running reviewdog')
+    await runReviewdog(rdLintResultsFile)
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
