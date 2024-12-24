@@ -167,7 +167,12 @@ async function runReviewdog(rdjsonlFile: string): Promise<void> {
 
   await exec.exec(
     'reviewdog',
-    ['-f=rdjsonl', '-filter-mode=file', '-reporter=github-pr-review'],
+    [
+      '-f=rdjsonl',
+      '-filter-mode=file',
+      '-reporter=github-pr-review',
+      '-fail-on-error=true'
+    ],
     {
       input: rdFileContent
     }
