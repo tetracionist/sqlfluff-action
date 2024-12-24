@@ -81,6 +81,31 @@ async function getGitDiffFiles(): Promise<string[]> {
     .filter(file => file.length > 0)
 }
 
+async function runSqlfluffWithFileOutput(
+  sqlfluffExec: string,
+  args: string[],
+  outputFile: string
+): Promise<void> {
+  const writeStream = fs.createWriteStream(outputFile)
+
+  const options = {
+    listeners: {
+      stdout: (data: Buffer) => {
+        writeStream.write(data)
+      }
+    }
+  }
+
+  try {
+    await exec.exec(sqlfluffExec, args, options)
+    writeStream.end() // Ensure the file is properly closed
+    console.log(`Output written to ${outputFile}`)
+  } catch (error) {
+    writeStream.end() // Close the file on error
+    throw error
+  }
+}
+
 function resolveAndCheckPath(
   inputPath: string | undefined
 ): string | undefined {
@@ -206,6 +231,7 @@ export async function run(): Promise<void> {
     const dbtExec = path.resolve('.venv/bin/dbt')
     const sqlfluffExec = path.resolve('.venv/bin/sqlfluff')
     const workspaceDir = path.resolve('.')
+    let lintResults: LintResult[] = []
 
     if (dbtProjectDir) {
       core.info(`DBT project directory set to: ${dbtProjectDir}`)
@@ -240,22 +266,25 @@ export async function run(): Promise<void> {
       }
     }
 
-    await exec.exec(
-      `${sqlfluffExec}`,
-      [
-        'lint',
-        '--dialect',
-        `${sqlfluffDialect}`,
-        '--templater',
-        `${sqlfluffTemplater}`,
-        ...filePaths,
-        '--format',
-        'json'
-      ],
-      lintJsonOptions
-    )
+    const sqlfluffArgs = [
+      'lint',
+      '--dialect',
+      `${sqlfluffDialect}`,
+      '--templater',
+      `${sqlfluffTemplater}`,
+      ...filePaths,
+      '--format',
+      'json'
+    ]
 
-    const lintResults = JSON.parse(stdout)
+    const lintOutputFile = path.resolve('./lint-output.json')
+    await runSqlfluffWithFileOutput(sqlfluffExec, sqlfluffArgs, lintOutputFile)
+
+    if (fs.existsSync(lintOutputFile)) {
+      const content = fs.readFileSync(lintOutputFile, 'utf-8')
+      let lintResults = JSON.parse(content)
+      console.log('Parsed Lint Results:', lintResults)
+    }
 
     // process as rdjsonl
     await processLintOutput(lintResults)

@@ -25703,6 +25703,25 @@ async function getGitDiffFiles() {
         .split('\n')
         .filter(file => file.length > 0);
 }
+async function runSqlfluffWithFileOutput(sqlfluffExec, args, outputFile) {
+    const writeStream = fs.createWriteStream(outputFile);
+    const options = {
+        listeners: {
+            stdout: (data) => {
+                writeStream.write(data);
+            }
+        }
+    };
+    try {
+        await exec.exec(sqlfluffExec, args, options);
+        writeStream.end(); // Ensure the file is properly closed
+        console.log(`Output written to ${outputFile}`);
+    }
+    catch (error) {
+        writeStream.end(); // Close the file on error
+        throw error;
+    }
+}
 function resolveAndCheckPath(inputPath) {
     if (!inputPath) {
         return undefined; // Return undefined if no input is provided
@@ -25809,6 +25828,7 @@ async function run() {
         const dbtExec = path.resolve('.venv/bin/dbt');
         const sqlfluffExec = path.resolve('.venv/bin/sqlfluff');
         const workspaceDir = path.resolve('.');
+        let lintResults = [];
         if (dbtProjectDir) {
             core.info(`DBT project directory set to: ${dbtProjectDir}`);
             // change directory to dbt project directory
@@ -25836,7 +25856,7 @@ async function run() {
                 }
             }
         };
-        await exec.exec(`${sqlfluffExec}`, [
+        const sqlfluffArgs = [
             'lint',
             '--dialect',
             `${sqlfluffDialect}`,
@@ -25845,8 +25865,14 @@ async function run() {
             ...filePaths,
             '--format',
             'json'
-        ], lintJsonOptions);
-        const lintResults = JSON.parse(stdout);
+        ];
+        const lintOutputFile = path.resolve('./lint-output.json');
+        await runSqlfluffWithFileOutput(sqlfluffExec, sqlfluffArgs, lintOutputFile);
+        if (fs.existsSync(lintOutputFile)) {
+            const content = fs.readFileSync(lintOutputFile, 'utf-8');
+            let lintResults = JSON.parse(content);
+            console.log('Parsed Lint Results:', lintResults);
+        }
         // process as rdjsonl
         await processLintOutput(lintResults);
         core.info('running reviewdog');
