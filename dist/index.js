@@ -25716,7 +25716,8 @@ async function setupUV() {
     try {
         await exec.exec('python', ['-m', 'pip', 'install', '--user', 'pipx']);
         await exec.exec('pipx', ['install', 'uv']);
-        await exec.exec('pipx', ['ensurepath']);
+        core.info(`Adding /root/.local/bin to PATH`);
+        process.env.PATH = `/root/.local/bin:${process.env.PATH}`;
         console.log('Successfully installed uv.');
     }
     catch (error) {
