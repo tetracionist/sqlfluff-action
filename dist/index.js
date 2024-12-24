@@ -25829,18 +25829,21 @@ async function run() {
             core.info('No SQL files changed.');
             return;
         }
-        await exec.exec(`${sqlfluffExec}`, [
-            'lint',
-            '--dialect',
-            `${sqlfluffDialect}`,
-            '--templater',
-            `${sqlfluffTemplater}`,
-            ...filePaths,
-            '--format',
-            'json',
-            '--write-output',
-            'lint-results.json'
-        ]);
+        try {
+            await exec.exec(`${sqlfluffExec}`, [
+                'lint',
+                '--dialect',
+                `${sqlfluffDialect}`,
+                '--templater',
+                `${sqlfluffTemplater}`,
+                ...filePaths,
+                '--format',
+                'json',
+                '--write-output',
+                'lint-results.json'
+            ]);
+        }
+        catch (error) { }
         if (fs.existsSync('lint-results.json')) {
             const content = fs.readFileSync('lint-results.json', 'utf-8');
             let lintResults = JSON.parse(content);
