@@ -2446,7 +2446,7 @@ class HttpClient {
         if (this._keepAlive && useProxy) {
             agent = this._proxyAgent;
         }
-        if (this._keepAlive && !useProxy) {
+        if (!useProxy) {
             agent = this._agent;
         }
         // if agent is already assigned use that agent.
@@ -2478,15 +2478,11 @@ class HttpClient {
             agent = tunnelAgent(agentOptions);
             this._proxyAgent = agent;
         }
-        // if reusing agent across request and tunneling agent isn't assigned create a new agent
-        if (this._keepAlive && !agent) {
+        // if tunneling agent isn't assigned create a new agent
+        if (!agent) {
             const options = { keepAlive: this._keepAlive, maxSockets };
             agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
             this._agent = agent;
-        }
-        // if not using private agent and tunnel agent isn't setup then use global agent
-        if (!agent) {
-            agent = usingSsl ? https.globalAgent : http.globalAgent;
         }
         if (usingSsl && this._ignoreSslError) {
             // we don't want to set NODE_TLS_REJECT_UNAUTHORIZED=0 since that will affect request for entire process
@@ -2509,7 +2505,7 @@ class HttpClient {
         }
         const usingSsl = parsedUrl.protocol === 'https:';
         proxyAgent = new undici_1.ProxyAgent(Object.assign({ uri: proxyUrl.href, pipelining: !this._keepAlive ? 0 : 1 }, ((proxyUrl.username || proxyUrl.password) && {
-            token: `${proxyUrl.username}:${proxyUrl.password}`
+            token: `Basic ${Buffer.from(`${proxyUrl.username}:${proxyUrl.password}`).toString('base64')}`
         })));
         this._proxyAgentDispatcher = proxyAgent;
         if (usingSsl && this._ignoreSslError) {
@@ -2623,11 +2619,11 @@ function getProxyUrl(reqUrl) {
     })();
     if (proxyVar) {
         try {
-            return new URL(proxyVar);
+            return new DecodedURL(proxyVar);
         }
         catch (_a) {
             if (!proxyVar.startsWith('http://') && !proxyVar.startsWith('https://'))
-                return new URL(`http://${proxyVar}`);
+                return new DecodedURL(`http://${proxyVar}`);
         }
     }
     else {
@@ -2685,6 +2681,19 @@ function isLoopbackAddress(host) {
         hostLower.startsWith('127.') ||
         hostLower.startsWith('[::1]') ||
         hostLower.startsWith('[0:0:0:0:0:0:0:1]'));
+}
+class DecodedURL extends URL {
+    constructor(url, base) {
+        super(url, base);
+        this._decodedUsername = decodeURIComponent(super.username);
+        this._decodedPassword = decodeURIComponent(super.password);
+    }
+    get username() {
+        return this._decodedUsername;
+    }
+    get password() {
+        return this._decodedPassword;
+    }
 }
 //# sourceMappingURL=proxy.js.map
 
@@ -25670,6 +25679,7 @@ const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
 const path = __importStar(__nccwpck_require__(6928));
 const fs = __importStar(__nccwpck_require__(9896));
+const reviewdog_1 = __nccwpck_require__(665);
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -25715,25 +25725,11 @@ async function setupUV() {
         throw error;
     }
 }
-async function setupReviewDog() {
-    try {
-        console.log('Installing Reviewdog...');
-        await exec.exec('bash', [
-            '-c',
-            'curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin'
-        ]);
-        console.log('Reviewdog installation completed.');
-    }
-    catch (error) {
-        console.error('Failed to install Reviewdog:', error);
-        throw error;
-    }
-}
-async function setupDependencies(pyprojectPath) {
+async function setupDependencies(dependenciesPath) {
     // Use UV to manage dependencies
     try {
         await exec.exec('uv', ['venv']);
-        await exec.exec('uv', ['pip', 'install', '-r', `${pyprojectPath}`]);
+        await exec.exec('uv', ['pip', 'install', '-r', `${dependenciesPath}`]);
         console.log('Successfully installed dependencies.');
     }
     catch (error) {
@@ -25741,53 +25737,19 @@ async function setupDependencies(pyprojectPath) {
         throw error;
     }
 }
-function processLintOutput(lintOutput) {
-    const rdjsonlines = lintOutput.flatMap(result => result.violations.map(violation => ({
-        message: violation.description,
-        location: {
-            path: `${result.filepath}`,
-            range: {
-                start: {
-                    line: violation.start_line_no,
-                    column: violation.start_line_pos
-                },
-                end: {
-                    line: violation.end_line_no,
-                    column: violation.end_line_pos
-                }
-            }
-        },
-        severity: 'ERROR'
-    })));
-    const rdjsonlContent = rdjsonlines
-        .map(line => JSON.stringify(line))
-        .join('\n');
-    fs.writeFileSync(rdLintResultsFile, rdjsonlContent, 'utf-8');
-}
-async function runReviewdog(rdjsonlFile) {
-    const rdFileContent = fs.readFileSync(rdjsonlFile);
-    await exec.exec('reviewdog', [
-        '-f=rdjsonl',
-        '-filter-mode=file',
-        '-reporter=github-pr-review',
-        '-fail-on-error=true'
-    ], {
-        input: rdFileContent
-    });
-}
 async function run() {
     try {
         console.log('Installing uv...');
         await setupUV();
-        // check if there is a pyproject.toml we can use
-        let pyprojectPath = core.getInput('pyproject-path');
-        core.info(`Received pyproject.toml path: ${pyprojectPath}`);
-        if (!pyprojectPath) {
-            pyprojectPath = path.resolve(__dirname, 'pyproject.toml');
-            core.info(`No custom path provided. Using default pyproject.toml at: ${pyprojectPath}`);
+        // check if there is a pyproject.toml or requirements.txt we can use
+        let dependenciesPath = core.getInput('dependencies-path');
+        core.info(`Received dependencies path: ${dependenciesPath}`);
+        if (!dependenciesPath) {
+            dependenciesPath = path.resolve(__dirname, 'pyproject.toml');
+            core.info(`No custom dependencies path provided. Using default pyproject.toml at: ${dependenciesPath}`);
         }
         // Install the dependencies using uv
-        await setupDependencies(pyprojectPath);
+        await setupDependencies(dependenciesPath);
         // check what type of project this is (e.g. Snowflake with dbt)
         const dbtProjectDir = core.getInput('dbt-project-path') || undefined;
         const dbtProfilesDir = core.getInput('dbt-profiles-path') || undefined;
@@ -25835,19 +25797,120 @@ async function run() {
             const content = fs.readFileSync('lint-results.json', 'utf-8');
             const lintResults = JSON.parse(content);
             console.log('Parsed Lint Results:', lintResults);
-            processLintOutput(lintResults);
+            (0, reviewdog_1.processLintOutput)(lintResults, rdLintResultsFile);
         }
         // process as rdjsonl
         core.info('setup review dog');
-        await setupReviewDog();
+        await (0, reviewdog_1.setupReviewDog)();
         core.info('running reviewdog');
-        await runReviewdog(rdLintResultsFile);
+        await (0, reviewdog_1.runReviewdog)(rdLintResultsFile);
     }
     catch (error) {
         // Fail the workflow run if an error occurs
         if (error instanceof Error)
             core.setFailed(error.message);
     }
+}
+
+
+/***/ }),
+
+/***/ 665:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.setupReviewDog = setupReviewDog;
+exports.runReviewdog = runReviewdog;
+exports.processLintOutput = processLintOutput;
+const exec = __importStar(__nccwpck_require__(5236));
+const fs = __importStar(__nccwpck_require__(9896));
+const core = __importStar(__nccwpck_require__(7484));
+async function setupReviewDog() {
+    try {
+        console.log('Installing Reviewdog...');
+        await exec.exec('bash', [
+            '-c',
+            'curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin'
+        ]);
+        console.log('Reviewdog installation completed.');
+    }
+    catch (error) {
+        console.error('Failed to install Reviewdog:', error);
+        throw error;
+    }
+}
+async function runReviewdog(rdjsonlFile) {
+    const rdFileContent = fs.readFileSync(rdjsonlFile);
+    const reviewdogName = core.getInput('review-dog-name');
+    const reviewdogFilterMode = core.getInput('review-dog-filter-mode');
+    const reviewdogFailOnError = core.getInput('review-dog-fail-on-error').toLowerCase() === 'true';
+    await exec.exec('reviewdog', [
+        `-n=${reviewdogName}`,
+        '-f=rdjsonl',
+        `-filter-mode=${reviewdogFilterMode}`,
+        '-reporter=github-pr-review',
+        `-fail-on-error=${reviewdogFailOnError}`
+    ], {
+        input: rdFileContent
+    });
+}
+function processLintOutput(lintOutput, rdLintResultsFile) {
+    const rdjsonlines = lintOutput.flatMap(result => result.violations.map(violation => ({
+        message: violation.description,
+        location: {
+            path: `${result.filepath}`,
+            range: {
+                start: {
+                    line: violation.start_line_no,
+                    column: violation.start_line_pos
+                },
+                end: {
+                    line: violation.end_line_no,
+                    column: violation.end_line_pos
+                }
+            }
+        },
+        severity: 'ERROR'
+    })));
+    const rdjsonlContent = rdjsonlines
+        .map(line => JSON.stringify(line))
+        .join('\n');
+    fs.writeFileSync(rdLintResultsFile, rdjsonlContent, 'utf-8');
 }
 
 
@@ -27767,7 +27830,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
  * The entrypoint for the action.
  */
 const main_1 = __nccwpck_require__(1730);
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
 (0, main_1.run)();
 
 })();

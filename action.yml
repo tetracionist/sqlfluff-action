@@ -17,6 +17,11 @@ inputs:
     required: false
     default: 'jinja'
 
+  sqlfluff-mode:
+    description: 'What mode should we use (lint or fix)'
+    required: false
+    default: 'lint'
+
   dbt-project-path:
     description: 'Where is the dbt project?'
     required: false
@@ -29,14 +34,25 @@ inputs:
     description: 'Which target should we use'
     required: false
 
-  pyproject-path:
-    description: 'Path to the pyproject.toml file (optional)'
+  depedencies-path:
+    description:
+      'Path to the pyproject.toml or requirements.txt file (optional)'
     required: false
 
   review-dog-filter-mode:
-    description:
+    description: Strategy for filtering the linting results
     default: file
     required: false
+
+  review-dog-name:
+    description: 'Name of the linter'
+    required: false
+    default: 'sqlfluff-lint'
+
+  review-dog-fail-on-error:
+    description: 'Should reviewdog fail if linting violations are found?'
+    required: false
+    default: true
 
 outputs:
   sqlfluff-version:
