@@ -23,24 +23,6 @@ type LintResult = {
   violations: Violation[]
 }
 
-type RdjsonlLine = {
-  message: string
-  location: {
-    path: string
-    range: {
-      start: {
-        line: number
-        column: number
-      }
-      end: {
-        line: number
-        column: number
-      }
-    }
-  }
-  severity: string
-}
-
 async function getGitDiffFiles(): Promise<string[]> {
   const baseRef = process.env.GITHUB_BASE_REF || 'main'
 
@@ -65,7 +47,7 @@ async function getGitDiffFiles(): Promise<string[]> {
       '--name-only',
       '--diff-filter=ACMRU',
       '--relative',
-      `origin/${process.env.GITHUB_BASE_REF}`,
+      `origin/${baseRef}`,
       '--',
       '*.sql'
     ],
@@ -77,19 +59,6 @@ async function getGitDiffFiles(): Promise<string[]> {
     .trim()
     .split('\n')
     .filter(file => file.length > 0)
-}
-
-function resolveAndCheckPath(
-  inputPath: string | undefined
-): string | undefined {
-  if (!inputPath) {
-    return undefined // Return undefined if no input is provided
-  }
-
-  const resolvedPath = path.resolve(inputPath)
-
-  // Return the resolved path only if it exists
-  return fs.existsSync(resolvedPath) ? resolvedPath : undefined
 }
 
 async function setupUV(): Promise<void> {
@@ -133,7 +102,7 @@ async function setupDependencies(
   }
 }
 
-async function processLintOutput(lintOutput: LintResult[]) {
+function processLintOutput(lintOutput: LintResult[]): void {
   const rdjsonlines = lintOutput.flatMap(result =>
     result.violations.map(violation => ({
       message: violation.description,
@@ -203,8 +172,6 @@ export async function run(): Promise<void> {
     const sqlfluffTemplater = core.getInput('sqlfluff-templater')
     const dbtExec = path.resolve('.venv/bin/dbt')
     const sqlfluffExec = path.resolve('.venv/bin/sqlfluff')
-    const workspaceDir = path.resolve('.')
-    let lintResults: LintResult[] = []
 
     if (dbtProjectDir) {
       core.info(`DBT project directory set to: ${dbtProjectDir}`)
@@ -242,14 +209,15 @@ export async function run(): Promise<void> {
         '--write-output',
         'lint-results.json'
       ])
-    } catch (error) {}
+    } catch (error) {
+      console.error(error)
+    }
 
     if (fs.existsSync('lint-results.json')) {
       const content = fs.readFileSync('lint-results.json', 'utf-8')
-      let lintResults = JSON.parse(content)
+      const lintResults: LintResult[] = JSON.parse(content) as LintResult[]
       console.log('Parsed Lint Results:', lintResults)
-
-      await processLintOutput(lintResults)
+      processLintOutput(lintResults)
     }
 
     // process as rdjsonl
