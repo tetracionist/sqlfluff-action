@@ -33,10 +33,6 @@ inputs:
     description: 'Path to the pyproject.toml file (optional)'
     required: false
 
-  github-token:
-    description: 'GitHub token for accessing the API'
-    required: true
-
   review-dog-filter-mode:
     description:
     default: file
