@@ -25693,7 +25693,7 @@ async function getGitDiffFiles() {
         '--name-only',
         '--diff-filter=ACMRU',
         '--relative',
-        `origin/${process.env.GITHUB_BASE_REF}`,
+        `origin/${baseRef}`,
         '--',
         '*.sql'
     ], options);
@@ -25702,14 +25702,6 @@ async function getGitDiffFiles() {
         .trim()
         .split('\n')
         .filter(file => file.length > 0);
-}
-function resolveAndCheckPath(inputPath) {
-    if (!inputPath) {
-        return undefined; // Return undefined if no input is provided
-    }
-    const resolvedPath = path.resolve(inputPath);
-    // Return the resolved path only if it exists
-    return fs.existsSync(resolvedPath) ? resolvedPath : undefined;
 }
 async function setupUV() {
     // Use UV to manage dependencies
@@ -25749,7 +25741,7 @@ async function setupDependencies(pyprojectPath) {
         throw error;
     }
 }
-async function processLintOutput(lintOutput) {
+function processLintOutput(lintOutput) {
     const rdjsonlines = lintOutput.flatMap(result => result.violations.map(violation => ({
         message: violation.description,
         location: {
@@ -25803,8 +25795,6 @@ async function run() {
         const sqlfluffTemplater = core.getInput('sqlfluff-templater');
         const dbtExec = path.resolve('.venv/bin/dbt');
         const sqlfluffExec = path.resolve('.venv/bin/sqlfluff');
-        const workspaceDir = path.resolve('.');
-        let lintResults = [];
         if (dbtProjectDir) {
             core.info(`DBT project directory set to: ${dbtProjectDir}`);
             // change directory to dbt project directory
@@ -25838,12 +25828,14 @@ async function run() {
                 'lint-results.json'
             ]);
         }
-        catch (error) { }
+        catch (error) {
+            console.error(error);
+        }
         if (fs.existsSync('lint-results.json')) {
             const content = fs.readFileSync('lint-results.json', 'utf-8');
-            let lintResults = JSON.parse(content);
+            const lintResults = JSON.parse(content);
             console.log('Parsed Lint Results:', lintResults);
-            await processLintOutput(lintResults);
+            processLintOutput(lintResults);
         }
         // process as rdjsonl
         core.info('setup review dog');
